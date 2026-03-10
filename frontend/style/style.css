@@ -1,0 +1,116 @@
+:root {
+  --color-primary: #d96868;
+  --color-surface: #fbf6f6;
+  --color-accent: #6a7e3f;
+  --color-accent-dark: #4c5c2d;
+  --color-ink: #2f3b1e;
+  --shadow-soft: 0 22px 44px rgba(54, 66, 29, 0.16);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: clamp(1.25rem, 3vw, 2.5rem);
+  min-height: 100vh;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--color-ink);
+  background:
+    radial-gradient(circle at 8% 10%, rgba(217, 104, 104, 0.2), transparent 34%),
+    radial-gradient(circle at 90% 12%, rgba(106, 126, 63, 0.22), transparent 28%),
+    linear-gradient(150deg, #fff8f8 0%, var(--color-surface) 52%, #f4f0e8 100%);
+}
+
+#menu {
+  margin: 0 auto 1.5rem;
+  max-width: 920px;
+}
+
+.page-card {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: clamp(1.2rem, 2.5vw, 2rem);
+  border-radius: 28px;
+  border: 1px solid rgba(106, 126, 63, 0.35);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow-soft);
+}
+
+.page-card h2 {
+  margin: 0 0 0.5rem;
+  color: var(--color-accent-dark);
+  font-size: clamp(1.35rem, 2.3vw, 2rem);
+}
+
+.page-card p {
+  margin: 0;
+  color: rgba(47, 59, 30, 0.86);
+}
+
+.site-menu {
+  padding: clamp(1rem, 2vw, 1.4rem);
+  border-radius: 30px;
+  border: 1px solid rgba(217, 104, 104, 0.45);
+  background:
+    linear-gradient(130deg, rgba(255, 255, 255, 0.96) 0%, rgba(251, 246, 246, 0.9) 56%, rgba(255, 255, 255, 0.96) 100%);
+  box-shadow: var(--shadow-soft);
+}
+
+.site-menu__header {
+  margin-bottom: 0.95rem;
+}
+
+.site-menu__label {
+  margin: 0 0 0.15rem;
+  color: rgba(76, 92, 45, 0.78);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-menu__title {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+  line-height: 1.1;
+}
+
+.site-menu__links {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.site-menu a {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(106, 126, 63, 0.45);
+  background-color: rgba(106, 126, 63, 0.14);
+  color: var(--color-accent-dark);
+  text-decoration: none;
+  font-weight: 700;
+  transition: background-color 420ms ease, border-color 420ms ease,
+    color 420ms ease, transform 420ms ease;
+}
+
+.site-menu a:hover,
+.site-menu a:focus-visible {
+  background-color: var(--color-accent-dark);
+  border-color: var(--color-primary);
+  color: var(--color-surface);
+  transform: translateY(-2px);
+}
+
+.site-menu a.is-active {
+  background-color: var(--color-primary);
+  border-color: rgba(217, 104, 104, 0.95);
+  color: #ffffff;
+}
