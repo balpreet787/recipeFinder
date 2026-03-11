@@ -34,8 +34,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     menuContainer.innerHTML = await response.text();
-    markActiveMenuLink(menuContainer, currentFile);
+    markActiveMenuLink(menuContainer, currentFile)
+    updateAuthLink();
   } catch (error) {
     console.error("Unable to load menu:", error);
   }
 });
+
+
+
+const token = localStorage.getItem("idToken");
+
+fetch("http://localhost:3000/api/message", {
+  headers: {
+    Authorization: `Bearer ${token}`
+  }
+})
+.then(res => res.json())
+.then(data => console.log(data));
