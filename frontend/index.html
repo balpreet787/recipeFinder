@@ -8,11 +8,27 @@
 </head>
 <body>
     <div id="menu"></div>
-    <main class="page-card">
+    <main class="page-card home-page">
         <h2>Find your next favorite meal</h2>
-        <p>Use Recipe Finder to discover ideas, plan your week, and keep your best recipes in one place.</p>
+        <p>Search recipes by name and open any result to view full ingredients and instructions.</p>
+
+        <form id="recipeSearchForm" class="recipe-search" autocomplete="off">
+            <label for="recipeSearchInput" class="sr-only">Search recipes</label>
+            <input id="recipeSearchInput" type="text" placeholder="Try chicken, pasta, curry..." required />
+            <button id="recipeSearchButton" type="submit" class="login-btn recipe-search__button">Search</button>
+        </form>
+
+        <p id="searchStatus" class="search-status" aria-live="polite"></p>
+
+        <section id="recipeResults" class="recipe-results hidden" aria-live="polite">
+            <aside class="recipe-list-pane">
+                <h3>Recipes</h3>
+                <ul id="recipeList" class="recipe-list"></ul>
+            </aside>
+            <article id="recipeDetail" class="recipe-detail"></article>
+        </section>
     </main>
     <script src="./script/nav.js"></script>
-    <script src="./script/script.js"></script
+    <script src="./script/script.js"></script>
 </body>
 </html>

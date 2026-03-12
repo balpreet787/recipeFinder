@@ -115,7 +115,8 @@ function loginUser(email, password) {
 
             showAuthSuccess("Login successful.");
             setTimeout(() => {
-                window.location.href = "index.html";
+                const next = new URLSearchParams(window.location.search).get("next") || "index.html";
+                window.location.href = next;
             }, 800);
         },
         onFailure: function (err) {
