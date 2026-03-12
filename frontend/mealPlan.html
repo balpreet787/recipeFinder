@@ -9,10 +9,33 @@
 <body>
     <div id="menu"></div>
     <main class="page-card">
+    <div class="mealplan-header">
+      <div>
         <h2>Recommended Meal Plan</h2>
-        <p>Build a balanced week with quick weekday meals and cozy weekend recipes tailored to your taste.</p>
-    </main>
-    <script src="./script/nav.js"></script>
-    <script src="./script/script.js"></script>
+        <p>
+          Recipes suggested from your recent protein searches.
+        </p>
+      </div>
+
+      <button id="refreshMealPlanBtn" class="login-btn mealplan-btn">
+        Refresh Suggestions
+      </button>
+    </div>
+
+    <p id="mealPlanMessage" class="message"></p>
+
+    <section id="mealPlanSummary" class="mealplan-summary hidden">
+      <h3>Your weekly suggestions</h3>
+      <p id="mealPlanSummaryText"></p>
+    </section>
+
+    <section id="mealPlanGrid" class="mealplan-grid">
+      <!-- cards will render here -->
+    </section>
+  </main>
+
+  <script src="./script/nav.js"></script>
+  <script src="./script/script.js"></script>
+  <script src="./script/mealPlan.js"></script>
 </body>
 </html>

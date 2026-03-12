@@ -618,3 +618,115 @@ body {
   color: var(--color-primary);
 }
 /* login page end*/
+
+
+/* meal plan page */
+.mealplan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.2rem;
+}
+
+.mealplan-btn {
+  min-width: 180px;
+}
+
+.mealplan-summary {
+  margin: 1rem 0 1.4rem;
+  padding: 1rem 1.1rem;
+  border-radius: 20px;
+  background: rgba(106, 126, 63, 0.1);
+  border: 1px solid rgba(106, 126, 63, 0.25);
+}
+
+.mealplan-summary h3 {
+  margin: 0 0 0.35rem;
+  color: var(--color-accent-dark);
+}
+
+.mealplan-summary p {
+  margin: 0;
+}
+
+.mealplan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.2rem;
+  margin-top: 1.2rem;
+}
+
+.meal-card {
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(106, 126, 63, 0.24);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: var(--shadow-soft);
+}
+
+.meal-card__image-wrap {
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: rgba(217, 104, 104, 0.08);
+}
+
+.meal-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 240ms ease;
+}
+
+.meal-card:hover .meal-card__image {
+  transform: scale(1.03);
+}
+
+.meal-card__body {
+  padding: 1rem;
+}
+
+.meal-card__day {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(76, 92, 45, 0.78);
+  font-weight: 700;
+}
+
+.meal-card__title {
+  margin: 0 0 0.45rem;
+  color: var(--color-accent-dark);
+  font-size: 1.15rem;
+}
+
+.meal-card__meta {
+  margin: 0 0 0.7rem;
+  color: rgba(47, 59, 30, 0.75);
+  font-size: 0.96rem;
+}
+
+.meal-card__reason {
+  margin: 0 0 0.9rem;
+  color: rgba(47, 59, 30, 0.88);
+}
+
+.meal-card__link {
+  display: inline-block;
+  padding: 0.6rem 0.95rem;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-primary);
+  transition: transform 200ms ease, filter 200ms ease;
+}
+
+.meal-card__link:hover,
+.meal-card__link:focus-visible {
+  transform: translateY(-2px);
+  filter: brightness(1.03);
+}
