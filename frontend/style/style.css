@@ -299,6 +299,14 @@ body {
   background: rgba(76, 92, 45, 0.45);
 }
 
+.recipe-save-btn.recipe-delete-btn {
+  background: linear-gradient(135deg, #c95555 0%, #d96868 100%);
+}
+
+.recipe-save-btn.recipe-delete-btn:disabled {
+  background: rgba(201, 85, 85, 0.45);
+}
+
 .recipe-detail__image {
   display: block;
   width: 100%;

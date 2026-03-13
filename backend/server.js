@@ -99,6 +99,39 @@ function getRecipeUrl(meal) {
   return null;
 }
 
+function normalizeRecipePayload(recipe) {
+  if (!recipe || typeof recipe !== "object") {
+    return null;
+  }
+
+  const recipeUrl = String(recipe.recipeUrl ?? recipe.sourceUrl ?? "").trim();
+  if (!recipeUrl) {
+    return null;
+  }
+
+  const ingredients = Array.isArray(recipe.ingredients)
+    ? recipe.ingredients.map((item) => String(item).trim()).filter(Boolean)
+    : [];
+
+  const instructions = Array.isArray(recipe.instructions)
+    ? recipe.instructions.map((item) => String(item).trim()).filter(Boolean)
+    : [];
+
+  return {
+    id: String(recipe.id ?? recipe.recipeId ?? "").trim() || null,
+    name: String(recipe.name ?? "").trim() || "Saved Recipe",
+    category: String(recipe.category ?? "").trim() || null,
+    cuisine: String(recipe.cuisine ?? "").trim() || null,
+    thumbnail: String(recipe.thumbnail ?? "").trim() || null,
+    ingredients,
+    instructions,
+    recipeUrl,
+    sourceUrl: String(recipe.sourceUrl ?? "").trim() || null,
+    youtubeUrl: String(recipe.youtubeUrl ?? "").trim() || null,
+    savedAt: new Date().toISOString()
+  };
+}
+
 function formatRecipe(meal) {
   return {
     id: meal.idMeal,
@@ -162,16 +195,7 @@ async function saveSearchTerm(userId, query) {
 }
 
 function buildBookmarkFromPayload(payload) {
-  const recipeUrl = String(payload?.recipeUrl ?? payload?.sourceUrl ?? "").trim();
-
-  if (!recipeUrl) {
-    return null;
-  }
-
-  return {
-    recipeUrl,
-    savedAt: new Date().toISOString()
-  };
+  return normalizeRecipePayload(payload?.recipe) ?? normalizeRecipePayload(payload);
 }
 
 async function getUserBookmarks(userId) {
@@ -182,6 +206,10 @@ async function getUserBookmarks(userId) {
   }));
 
   return Array.isArray(response.Item?.bookmarks) ? response.Item.bookmarks : [];
+}
+
+function getBookmarkUrl(bookmark) {
+  return String(bookmark?.recipeUrl ?? bookmark?.sourceUrl ?? "").trim();
 }
 
 
@@ -325,6 +353,57 @@ app.post("/api/bookmarks", verifyToken, async (req, res) => {
     console.error("Save bookmark failed:", error.message);
     return res.status(500).json({
       message: "Unable to save bookmark right now."
+    });
+  }
+});
+
+app.delete("/api/bookmarks", verifyToken, async (req, res) => {
+  const userId = req.user?.sub;
+  const email = req.user?.email;
+  const recipeUrl = String(req.body?.recipeUrl ?? req.query?.recipeUrl ?? "").trim();
+
+  if (!userId) {
+    return res.status(401).json({
+      message: "Invalid token payload: missing user identifier."
+    });
+  }
+
+  if (!recipeUrl) {
+    return res.status(400).json({
+      message: "recipeUrl is required to remove a bookmark."
+    });
+  }
+
+  try {
+    await ensureUserExists(userId, email);
+
+    const bookmarks = await getUserBookmarks(userId);
+    const filteredBookmarks = bookmarks.filter((bookmark) => getBookmarkUrl(bookmark) !== recipeUrl);
+
+    if (filteredBookmarks.length === bookmarks.length) {
+      return res.status(404).json({
+        message: "Bookmark not found."
+      });
+    }
+
+    await dynamoDb.send(new UpdateCommand({
+      TableName: USERS_TABLE_NAME,
+      Key: { userId },
+      UpdateExpression: "SET bookmarks = :bookmarks, updatedAt = :updatedAt",
+      ExpressionAttributeValues: {
+        ":bookmarks": filteredBookmarks,
+        ":updatedAt": new Date().toISOString()
+      }
+    }));
+
+    return res.json({
+      message: "Recipe removed from bookmarks.",
+      count: filteredBookmarks.length
+    });
+  } catch (error) {
+    console.error("Delete bookmark failed:", error.message);
+    return res.status(500).json({
+      message: "Unable to remove bookmark right now."
     });
   }
 });
