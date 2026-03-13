@@ -3,39 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recommended Meal Plan</title>
+    <title>Meal Plan</title>
     <link rel="stylesheet" href="./style/style.css">
 </head>
 <body>
     <div id="menu"></div>
-    <main class="page-card">
-    <div class="mealplan-header">
-      <div>
-        <h2>Recommended Meal Plan</h2>
-        <p>
-          Recipes suggested from your recent protein searches.
-        </p>
-      </div>
+    <main class="page-card home-page">
+        <h2>Meal Plan</h2>
+        <p>Generate a random set of meals from your saved recipes or search history.</p>
 
-      <button id="refreshMealPlanBtn" class="login-btn mealplan-btn">
-        Refresh Suggestions
-      </button>
-    </div>
+        <fieldset class="mealplan-source" aria-label="Meal plan source">
+            <legend class="sr-only">Meal plan source</legend>
+            <label class="mealplan-source__option">
+                <input type="radio" name="mealPlanSource" value="saved" checked />
+                Saved recipes
+            </label>
+            <label class="mealplan-source__option">
+                <input type="radio" name="mealPlanSource" value="history" />
+                Search history
+            </label>
+        </fieldset>
 
-    <p id="mealPlanMessage" class="message"></p>
+        <form id="mealPlanForm" class="recipe-search" autocomplete="off">
+            <label for="mealPlanCount" class="sr-only">Number of meals</label>
+            <input id="mealPlanCount" type="number" min="1" max="50" step="1" inputmode="numeric" placeholder="Meals to generate" value="7" required />
+            <button id="generateMealPlanButton" type="submit" class="login-btn recipe-search__button">Generate</button>
+        </form>
 
-    <section id="mealPlanSummary" class="mealplan-summary hidden">
-      <h3>Your weekly suggestions</h3>
-      <p id="mealPlanSummaryText"></p>
-    </section>
+        <p id="searchStatus" class="search-status" aria-live="polite"></p>
 
-    <section id="mealPlanGrid" class="mealplan-grid">
-      <!-- cards will render here -->
-    </section>
-  </main>
+        <section id="recipeResults" class="recipe-results hidden" aria-live="polite">
+            <aside class="recipe-list-pane">
+                <h3>Meals</h3>
+                <ul id="recipeList" class="recipe-list"></ul>
+            </aside>
+            <article id="recipeDetail" class="recipe-detail"></article>
+        </section>
+    </main>
 
-  <script src="./script/nav.js"></script>
-  <script src="./script/script.js"></script>
-  <script src="./script/mealPlan.js"></script>
+    <script src="./script/nav.js"></script>
+    <script src="./script/script.js"></script>
+    <script src="./script/mealPlan.js"></script>
 </body>
 </html>

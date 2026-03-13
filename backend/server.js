@@ -212,6 +212,43 @@ function getBookmarkUrl(bookmark) {
   return String(bookmark?.recipeUrl ?? bookmark?.sourceUrl ?? "").trim();
 }
 
+function clampInt(value, min, max) {
+  const numeric = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(numeric)) return min;
+  return Math.min(Math.max(numeric, min), max);
+}
+
+function shuffledCopy(items) {
+  const copy = Array.isArray(items) ? [...items] : [];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
+
+function normalizeStringList(value) {
+  if (value instanceof Set) {
+    return Array.from(value).map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  return [];
+}
+
+async function getUserSearchedProteins(userId) {
+  const response = await dynamoDb.send(new GetCommand({
+    TableName: USERS_TABLE_NAME,
+    Key: { userId },
+    ProjectionExpression: "searchedProteins"
+  }));
+
+  return normalizeStringList(response.Item?.searchedProteins);
+}
+
 
 app.get("/api/message", verifyToken, (req, res) => {
   res.json({
@@ -269,6 +306,90 @@ app.get("/api/search", verifyToken, async (req, res) => {
     console.error("Search route failed:", error.message);
     return res.status(500).json({
       message: "Unable to process search request right now."
+    });
+  }
+});
+
+app.get("/api/mealplan", verifyToken, async (req, res) => {
+  const userId = req.user?.sub;
+  const email = req.user?.email;
+  const requestedCount = clampInt(req.query.count, 1, 50);
+
+  if (!userId) {
+    return res.status(401).json({
+      message: "Invalid token payload: missing user identifier."
+    });
+  }
+
+  try {
+    await ensureUserExists(userId, email);
+    const searchedProteins = await getUserSearchedProteins(userId);
+
+    if (!searchedProteins.length) {
+      return res.json({
+        count: 0,
+        basedOnProteins: [],
+        recipes: [],
+        message: "No search history yet. Search for a few recipes first."
+      });
+    }
+
+    const proteinsToUse = shuffledCopy(searchedProteins).slice(0, 5);
+    const recipePool = new Map();
+
+    for (const protein of proteinsToUse) {
+      try {
+        const response = await axios.get(`${mealDbBaseUrl}/search.php`, {
+          params: { s: protein },
+          timeout: 10000
+        });
+
+        const meals = Array.isArray(response.data?.meals) ? response.data.meals : [];
+        meals.forEach((meal) => {
+          const formatted = formatRecipe(meal);
+          if (!formatted?.recipeUrl) {
+            return;
+          }
+
+          recipePool.set(formatted.recipeUrl, {
+            ...formatted,
+            matchedProtein: protein
+          });
+        });
+      } catch (error) {
+        console.error("Meal plan search failed:", protein, axios.isAxiosError(error) ? error.message : error);
+      }
+    }
+
+    const allCandidates = Array.from(recipePool.values());
+    if (!allCandidates.length) {
+      return res.json({
+        count: 0,
+        basedOnProteins: proteinsToUse,
+        recipes: [],
+        message: "We could not find recipes based on your recent searches. Try searching a different protein."
+      });
+    }
+
+    const selected = shuffledCopy(allCandidates).slice(0, Math.min(requestedCount, allCandidates.length));
+
+    return res.json({
+      count: selected.length,
+      basedOnProteins: proteinsToUse,
+      recipes: selected,
+      summary: `Generated ${selected.length} meal${selected.length === 1 ? "" : "s"} based on ${proteinsToUse.length} recent search term${proteinsToUse.length === 1 ? "" : "s"}.`
+    });
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("Meal plan route external request failed:", error.message);
+      return res.status(502).json({
+        message: "Unable to fetch meal plan recipes right now."
+      });
+    }
+
+    console.error("Meal plan route failed:", error.message);
+    return res.status(500).json({
+      message: "Unable to generate a meal plan right now."
     });
   }
 });

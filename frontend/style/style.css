@@ -738,3 +738,37 @@ body {
   transform: translateY(-2px);
   filter: brightness(1.03);
 }
+
+.mealplan-source {
+  margin: 0.4rem 0 0.2rem;
+  padding: 0.5rem 0.2rem 0;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mealplan-source__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(106, 126, 63, 0.45);
+  background-color: rgba(106, 126, 63, 0.14);
+  color: var(--color-accent-dark);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 420ms ease, border-color 420ms ease, color 420ms ease, transform 420ms ease;
+}
+
+.mealplan-source__option:hover,
+.mealplan-source__option:focus-within {
+  background-color: rgba(106, 126, 63, 0.22);
+  border-color: rgba(217, 104, 104, 0.8);
+  transform: translateY(-1px);
+}
+
+.mealplan-source__option input {
+  accent-color: var(--color-primary);
+}
