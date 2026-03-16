@@ -638,8 +638,164 @@ body {
   margin-bottom: 1.2rem;
 }
 
+.mealplan-calendar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(106, 126, 63, 0.25);
+  background: rgba(106, 126, 63, 0.1);
+}
+
+.mealplan-calendar--inline {
+  margin-top: 0.5rem;
+}
+
+.mealplan-calendar__label {
+  display: grid;
+  gap: 0.15rem;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-accent-dark);
+}
+
+.mealplan-calendar__label span:last-child {
+  font-size: 0.88rem;
+  color: rgba(47, 59, 30, 0.7);
+  font-weight: 600;
+}
+
+.mealplan-nav-btn {
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--color-primary) 0%, #c95555 100%);
+  box-shadow: var(--shadow-soft);
+  transition: transform 200ms ease, filter 200ms ease;
+}
+
+.mealplan-nav-btn:disabled {
+  cursor: default;
+  filter: grayscale(0.4);
+  opacity: 0.6;
+  transform: none;
+}
+
+.mealplan-nav-btn:hover,
+.mealplan-nav-btn:focus-visible {
+  transform: translateY(-2px);
+  filter: brightness(1.03);
+}
+
 .mealplan-btn {
   min-width: 180px;
+}
+
+.mealplan-search {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.2rem;
+}
+
+.mealplan-search label {
+  font-weight: 700;
+  color: var(--color-accent-dark);
+}
+
+.mealplan-search__fields {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.mealplan-hint {
+  margin: 0;
+  color: rgba(47, 59, 30, 0.7);
+  font-size: 0.9rem;
+}
+
+
+.mealplan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 0.3rem;
+}
+
+.mealplan-lock {
+  margin: 0.2rem 0 0;
+  font-weight: 600;
+  color: rgba(47, 59, 30, 0.7);
+}
+
+.mealplan-dialog {
+  border: none;
+  border-radius: 20px;
+  padding: 0;
+  max-width: 420px;
+  width: 90%;
+  background: #ffffff;
+  box-shadow: var(--shadow-soft);
+}
+
+.mealplan-dialog::backdrop {
+  background: rgba(47, 59, 30, 0.35);
+}
+
+.mealplan-dialog__content {
+  padding: 1.2rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.mealplan-dialog__content h3 {
+  margin: 0;
+  color: var(--color-accent-dark);
+}
+
+.mealplan-dialog__content p {
+  margin: 0;
+  color: rgba(47, 59, 30, 0.75);
+}
+
+.mealplan-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.mealplan-btn--ghost {
+  background: rgba(76, 92, 45, 0.18);
+  color: var(--color-accent-dark);
+  box-shadow: none;
+}
+
+.mealplan-btn--ghost:hover,
+.mealplan-btn--ghost:focus-visible {
+  transform: translateY(-2px);
+  filter: none;
+}
+
+.mealplan-detail__header h3 {
+  margin: 0;
+  color: var(--color-accent-dark);
+}
+
+.mealplan-detail__meta {
+  margin: 0.25rem 0 0.4rem;
+  color: rgba(47, 59, 30, 0.7);
+  font-weight: 600;
+}
+
+.mealplan-detail__info {
+  margin: 0 0 0.6rem;
+  color: rgba(47, 59, 30, 0.75);
 }
 
 .mealplan-summary {
@@ -771,4 +927,15 @@ body {
 
 .mealplan-source__option input {
   accent-color: var(--color-primary);
+}
+
+@media (max-width: 720px) {
+  .mealplan-calendar {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .mealplan-search__fields {
+    grid-template-columns: 1fr;
+  }
 }

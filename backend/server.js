@@ -3,8 +3,8 @@ import cors from "cors";
 import jwt from "jsonwebtoken";
 import jwkToPem from "jwk-to-pem";
 import axios from "axios";
-import { GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { dynamoDb, USERS_TABLE_NAME } from "./db.js";
+import { DeleteCommand, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { dynamoDb, MEALPLAN_TABLE_NAME, USERS_TABLE_NAME } from "./db.js";
 
 const app = express();
 const PORT = 3000;
@@ -249,6 +249,150 @@ async function getUserSearchedProteins(userId) {
   return normalizeStringList(response.Item?.searchedProteins);
 }
 
+function parseProteinInput(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/[\s,.\|/]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function parseIsoDateToLocal(dateString) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateString || "").trim());
+  if (!match) return null;
+
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10) - 1;
+  const day = Number.parseInt(match[3], 10);
+
+  const date = new Date(year, month, day);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
+function formatDateIsoLocal(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function startOfWeekSunday(date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const dayOfWeek = start.getDay();
+  start.setDate(start.getDate() - dayOfWeek);
+  return start;
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function buildWeekDays(weekStart) {
+  const startDate = parseIsoDateToLocal(weekStart);
+  if (!startDate) {
+    return [];
+  }
+
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  return dayNames.map((day, index) => ({
+    day,
+    date: formatDateIsoLocal(addDays(startDate, index))
+  }));
+}
+
+async function getMealPlanCache(userId, weekStart) {
+  const response = await dynamoDb.send(new GetCommand({
+    TableName: MEALPLAN_TABLE_NAME,
+    Key: { userId, weekStart }
+  }));
+
+  return response.Item || null;
+}
+
+async function putMealPlanCache(item) {
+  await dynamoDb.send(new PutCommand({
+    TableName: MEALPLAN_TABLE_NAME,
+    Item: item
+  }));
+}
+
+async function fetchMealCandidates(proteins) {
+  const recipePool = new Map();
+
+  for (const protein of proteins) {
+    try {
+      const response = await axios.get(`${mealDbBaseUrl}/search.php`, {
+        params: { s: protein },
+        timeout: 10000
+      });
+
+      const meals = Array.isArray(response.data?.meals) ? response.data.meals : [];
+      meals.forEach((meal) => {
+        const formatted = formatRecipe(meal);
+        if (!formatted?.recipeUrl) {
+          return;
+        }
+
+        recipePool.set(formatted.recipeUrl, {
+          ...formatted,
+          matchedProtein: protein
+        });
+      });
+    } catch (error) {
+      console.error("Meal plan search failed:", protein, axios.isAxiosError(error) ? error.message : error);
+    }
+  }
+
+  return Array.from(recipePool.values());
+}
+
+function assignMealsToWeek(recipes, weekStart) {
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const startDate = parseIsoDateToLocal(weekStart);
+  const shuffled = shuffledCopy(recipes);
+  const plan = {};
+
+  dayNames.forEach((day, dayIndex) => {
+    if (!shuffled.length) {
+      plan[day] = null;
+      return;
+    }
+
+    const recipe = shuffled[dayIndex % shuffled.length];
+    plan[day] = {
+      ...recipe,
+      plannedDate: startDate ? formatDateIsoLocal(addDays(startDate, dayIndex)) : null
+    };
+  });
+
+  return plan;
+}
+
+function buildWeekResponse(weekStart, plan) {
+  const days = buildWeekDays(weekStart).map((entry) => ({
+    ...entry,
+    recipe: Array.isArray(plan?.[entry.day])
+      ? plan[entry.day][0] ?? null
+      : plan?.[entry.day] ?? null
+  }));
+
+  return days;
+}
+
 
 app.get("/api/message", verifyToken, (req, res) => {
   res.json({
@@ -306,6 +450,243 @@ app.get("/api/search", verifyToken, async (req, res) => {
     console.error("Search route failed:", error.message);
     return res.status(500).json({
       message: "Unable to process search request right now."
+    });
+  }
+});
+
+app.get("/api/mealplan/week", verifyToken, async (req, res) => {
+  const userId = req.user?.sub;
+  const weekStart = String(req.query?.weekStart ?? "").trim();
+
+  if (!userId) {
+    return res.status(401).json({
+      message: "Invalid token payload: missing user identifier."
+    });
+  }
+
+  const parsedWeekStart = parseIsoDateToLocal(weekStart);
+  if (!parsedWeekStart) {
+    return res.status(400).json({
+      message: "weekStart must be provided in YYYY-MM-DD format."
+    });
+  }
+
+  try {
+    const cachedPlan = await getMealPlanCache(userId, weekStart);
+    if (!cachedPlan?.plan) {
+      return res.status(404).json({
+        message: "No saved meal plan for this week yet."
+      });
+    }
+
+    return res.json({
+      cached: true,
+      weekStart,
+      weekEnd: formatDateIsoLocal(addDays(parsedWeekStart, 6)),
+      generatedAt: cachedPlan.generatedAt || null,
+      proteins: normalizeStringList(cachedPlan.proteins),
+      days: buildWeekResponse(weekStart, cachedPlan.plan)
+    });
+  } catch (error) {
+    console.error("Load meal plan failed:", error.message);
+    return res.status(500).json({
+      message: "Unable to load meal plan right now."
+    });
+  }
+});
+
+app.post("/api/mealplan/week", verifyToken, async (req, res) => {
+  const userId = req.user?.sub;
+  const email = req.user?.email;
+  const weekStart = String(req.body?.weekStart ?? "").trim();
+  const proteinInput = parseProteinInput(req.body?.proteins);
+  const force = Boolean(req.body?.force);
+  const save = req.body?.save !== false;
+  const incomingPlan = req.body?.plan && typeof req.body.plan === "object" ? req.body.plan : null;
+
+  if (!userId) {
+    return res.status(401).json({
+      message: "Invalid token payload: missing user identifier."
+    });
+  }
+
+  const parsedWeekStart = parseIsoDateToLocal(weekStart);
+  if (!parsedWeekStart) {
+    return res.status(400).json({
+      message: "weekStart must be provided in YYYY-MM-DD format."
+    });
+  }
+
+  const currentWeekStart = startOfWeekSunday(new Date());
+  const diffDays = Math.round((parsedWeekStart.getTime() - currentWeekStart.getTime()) / (24 * 60 * 60 * 1000));
+  if (diffDays < -7 || diffDays > 7) {
+    return res.status(400).json({
+      message: "Meal plans are only available for last week, this week, and next week."
+    });
+  }
+
+  try {
+    await ensureUserExists(userId, email);
+
+    if (diffDays < 0 && (force || save || incomingPlan)) {
+      return res.status(403).json({
+        message: "Last week is locked and cannot be edited."
+      });
+    }
+
+    if (incomingPlan) {
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const plan = {};
+      dayNames.forEach((day) => {
+        const entry = incomingPlan[day];
+        plan[day] = entry ?? null;
+      });
+
+      const generatedAt = new Date().toISOString();
+      const ttl = Math.floor(Date.now() / 1000) + 21 * 24 * 60 * 60;
+
+      await putMealPlanCache({
+        userId,
+        weekStart,
+        plan,
+        proteins: proteinInput,
+        generatedAt,
+        ttl
+      });
+
+      return res.json({
+        cached: false,
+        weekStart,
+        weekEnd: formatDateIsoLocal(addDays(parsedWeekStart, 6)),
+        generatedAt,
+        proteins: proteinInput,
+        days: buildWeekResponse(weekStart, plan)
+      });
+    }
+
+    const cachedPlan = await getMealPlanCache(userId, weekStart);
+    if (cachedPlan?.plan && !force) {
+      return res.json({
+        cached: true,
+        weekStart,
+        weekEnd: formatDateIsoLocal(addDays(parsedWeekStart, 6)),
+        generatedAt: cachedPlan.generatedAt || null,
+        proteins: normalizeStringList(cachedPlan.proteins),
+        days: buildWeekResponse(weekStart, cachedPlan.plan)
+      });
+    }
+
+    if (diffDays < 0) {
+      return res.status(403).json({
+        message: "Last week is locked and cannot be generated."
+      });
+    }
+
+    let proteinsToUse = proteinInput;
+    if (!proteinsToUse.length) {
+      proteinsToUse = await getUserSearchedProteins(userId);
+    } else {
+      for (const protein of proteinsToUse) {
+        await saveSearchTerm(userId, protein);
+      }
+    }
+
+    if (!proteinsToUse.length) {
+      return res.status(400).json({
+        message: "Add at least one protein to generate a meal plan."
+      });
+    }
+
+    const candidates = await fetchMealCandidates(proteinsToUse);
+    if (!candidates.length) {
+      return res.status(200).json({
+        cached: false,
+        weekStart,
+        weekEnd: formatDateIsoLocal(addDays(parsedWeekStart, 6)),
+        proteins: proteinsToUse,
+        days: buildWeekResponse(weekStart, {}),
+        message: "No recipes were found for the selected proteins."
+      });
+    }
+
+    const plan = assignMealsToWeek(candidates, weekStart);
+    const generatedAt = new Date().toISOString();
+    const ttl = Math.floor(Date.now() / 1000) + 21 * 24 * 60 * 60;
+
+    if (save) {
+      await putMealPlanCache({
+        userId,
+        weekStart,
+        plan,
+        proteins: proteinsToUse,
+        generatedAt,
+        ttl
+      });
+    }
+
+    return res.json({
+      cached: false,
+      weekStart,
+      weekEnd: formatDateIsoLocal(addDays(parsedWeekStart, 6)),
+      generatedAt,
+      proteins: proteinsToUse,
+      days: buildWeekResponse(weekStart, plan),
+      preview: !save
+    });
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("Meal plan week request failed:", error.message);
+      return res.status(502).json({
+        message: "Unable to fetch meal plan recipes right now."
+      });
+    }
+
+    console.error("Meal plan week route failed:", error.message);
+    return res.status(500).json({
+      message: "Unable to generate a meal plan right now."
+    });
+  }
+});
+
+app.delete("/api/mealplan/week", verifyToken, async (req, res) => {
+  const userId = req.user?.sub;
+  const weekStart = String(req.query?.weekStart ?? req.body?.weekStart ?? "").trim();
+
+  if (!userId) {
+    return res.status(401).json({
+      message: "Invalid token payload: missing user identifier."
+    });
+  }
+
+  if (!parseIsoDateToLocal(weekStart)) {
+    return res.status(400).json({
+      message: "weekStart must be provided in YYYY-MM-DD format."
+    });
+  }
+
+  const parsedWeekStart = parseIsoDateToLocal(weekStart);
+  const currentWeekStart = startOfWeekSunday(new Date());
+  const diffDays = Math.round((parsedWeekStart.getTime() - currentWeekStart.getTime()) / (24 * 60 * 60 * 1000));
+  if (diffDays < 0) {
+    return res.status(403).json({
+      message: "Last week is locked and cannot be deleted."
+    });
+  }
+
+  try {
+    await dynamoDb.send(new DeleteCommand({
+      TableName: MEALPLAN_TABLE_NAME,
+      Key: { userId, weekStart }
+    }));
+
+    return res.json({
+      message: "Meal plan deleted.",
+      weekStart
+    });
+  } catch (error) {
+    console.error("Delete meal plan failed:", error.message);
+    return res.status(500).json({
+      message: "Unable to delete meal plan right now."
     });
   }
 });

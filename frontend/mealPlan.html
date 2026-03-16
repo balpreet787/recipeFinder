@@ -9,28 +9,44 @@
 <body>
     <div id="menu"></div>
     <main class="page-card home-page">
-        <h2>Meal Plan</h2>
-        <p>Generate a random set of meals from your saved recipes or search history.</p>
-
-        <fieldset class="mealplan-source" aria-label="Meal plan source">
-            <legend class="sr-only">Meal plan source</legend>
-            <label class="mealplan-source__option">
-                <input type="radio" name="mealPlanSource" value="saved" checked />
-                Saved recipes
-            </label>
-            <label class="mealplan-source__option">
-                <input type="radio" name="mealPlanSource" value="history" />
-                Search history
-            </label>
-        </fieldset>
+        <div class="mealplan-header">
+            <div>
+                <h2>Meal Plan</h2>
+                <p>View a fixed plan for last week, this week, or next week.</p>
+            </div>
+        </div>
 
         <form id="mealPlanForm" class="recipe-search" autocomplete="off">
-            <label for="mealPlanCount" class="sr-only">Number of meals</label>
-            <input id="mealPlanCount" type="number" min="1" max="50" step="1" inputmode="numeric" placeholder="Meals to generate" value="7" required />
-            <button id="generateMealPlanButton" type="submit" class="login-btn recipe-search__button">Generate</button>
+            <label for="proteinInput" class="sr-only">Proteins</label>
+            <input id="proteinInput" type="text" placeholder="Chicken, beef, salmon" />
         </form>
+        <p class="mealplan-hint">Separate proteins with spaces, commas, or dots.</p>
+
+        <div class="mealplan-actions">
+            <button id="regenerateMealPlanButton" type="button" class="login-btn mealplan-btn">Regenerate week</button>
+            <button id="deleteMealPlanButton" type="button" class="login-btn mealplan-btn mealplan-btn--ghost">Delete plan</button>
+        </div>
+        <p id="lockNotice" class="mealplan-lock hidden">Last week is locked and cannot be edited.</p>
 
         <p id="searchStatus" class="search-status" aria-live="polite"></p>
+
+        <section id="mealPlanSummary" class="mealplan-summary hidden" aria-live="polite">
+            <h3 id="summaryTitle">This Week</h3>
+            <p id="summaryBody"></p>
+        </section>
+
+        <div class="mealplan-calendar mealplan-calendar--inline" role="group" aria-label="Meal plan week navigation">
+            <button id="prevWeekButton" type="button" class="mealplan-nav-btn" aria-label="Previous week">
+                &lt;
+            </button>
+            <div class="mealplan-calendar__label">
+                <span id="weekLabel">Current week</span>
+                <span id="weekRange"></span>
+            </div>
+            <button id="nextWeekButton" type="button" class="mealplan-nav-btn" aria-label="Next week">
+                &gt;
+            </button>
+        </div>
 
         <section id="recipeResults" class="recipe-results hidden" aria-live="polite">
             <aside class="recipe-list-pane">
@@ -41,8 +57,19 @@
         </section>
     </main>
 
-    <script src="./script/nav.js"></script>
-    <script src="./script/script.js"></script>
-    <script src="./script/mealPlan.js"></script>
+    <dialog id="deleteMealPlanDialog" class="mealplan-dialog" aria-labelledby="deleteMealPlanTitle">
+        <form method="dialog" class="mealplan-dialog__content">
+            <h3 id="deleteMealPlanTitle">Delete meal plan?</h3>
+            <p>This will remove the saved plan for the selected week.</p>
+            <div class="mealplan-dialog__actions">
+                <button value="cancel" class="login-btn mealplan-btn mealplan-btn--ghost">Cancel</button>
+                <button id="confirmDeleteMealPlan" value="confirm" class="login-btn mealplan-btn">Delete</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script src="./script/nav.js?v=2"></script>
+    <script src="./script/script.js?v=2"></script>
+    <script src="./script/mealPlan.js?v=3"></script>
 </body>
 </html>

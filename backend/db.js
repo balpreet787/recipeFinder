@@ -39,3 +39,4 @@ export const dynamoDb = DynamoDBDocumentClient.from(ddbClient, {
 });
 
 export const USERS_TABLE_NAME = process.env.DDB_USERS_TABLE || "Users";
+export const MEALPLAN_TABLE_NAME = process.env.DDB_MEALPLAN_TABLE || "MealPlanCache";
