@@ -1,10 +1,13 @@
+import { randomUUID } from "node:crypto";
 import express, { json } from "express";
 import cors from "cors";
 import jwt from "jsonwebtoken";
 import jwkToPem from "jwk-to-pem";
 import axios from "axios";
+import pinoHttp from "pino-http";
 import { DeleteCommand, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDb, MEALPLAN_TABLE_NAME, USERS_TABLE_NAME } from "./db.js";
+import { buildErrorLogObject, errorSerializer, logger } from "./logger.js";
 
 const app = express();
 const PORT = 3000;
@@ -15,6 +18,58 @@ const mealDbBaseUrl = "https://www.themealdb.com/api/json/v1/1";
 let pems = {};
 
 app.use(cors());
+app.use(pinoHttp({
+  logger,
+  genReqId(req, res) {
+    const incomingRequestId = req.headers["x-request-id"];
+
+    if (typeof incomingRequestId === "string" && incomingRequestId.trim()) {
+      res.setHeader("x-request-id", incomingRequestId);
+      return incomingRequestId;
+    }
+
+    const requestId = randomUUID();
+    res.setHeader("x-request-id", requestId);
+    return requestId;
+  },
+  customLogLevel(req, res, error) {
+    if (error || res.statusCode >= 500) {
+      return "error";
+    }
+
+    if (res.statusCode >= 400) {
+      return "warn";
+    }
+
+    return "info";
+  },
+  customSuccessMessage(req) {
+    return `${req.method} ${req.originalUrl || req.url} completed`;
+  },
+  customErrorMessage(req, res, error) {
+    if (error) {
+      return `${req.method} ${req.originalUrl || req.url} failed`;
+    }
+
+    return `${req.method} ${req.originalUrl || req.url} completed with errors`;
+  },
+  serializers: {
+    req(req) {
+      return {
+        id: req.id,
+        method: req.method,
+        url: req.originalUrl || req.url,
+        query: req.query
+      };
+    },
+    res(res) {
+      return {
+        statusCode: res.statusCode
+      };
+    },
+    err: errorSerializer
+  }
+}));
 app.use(json());
 
 async function getPems() {
@@ -29,7 +84,17 @@ async function getPems() {
   });
 }
 
-await getPems();
+try {
+  await getPems();
+  logger.info({ region, userPoolId }, "Loaded Cognito signing keys");
+} catch (error) {
+  logger.fatal(buildErrorLogObject(error, { region, userPoolId }), "Failed to load Cognito signing keys");
+  throw error;
+}
+
+function getRequestLogger(req) {
+  return req.log ?? logger;
+}
 
 function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -353,7 +418,7 @@ async function fetchMealCandidates(proteins) {
         });
       });
     } catch (error) {
-      console.error("Meal plan search failed:", protein, axios.isAxiosError(error) ? error.message : error);
+      logger.warn(buildErrorLogObject(error, { protein }), "Meal plan search failed");
     }
   }
 
@@ -441,13 +506,16 @@ app.get("/api/search", verifyToken, async (req, res) => {
     });
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      console.error("ThemealDB request failed:", error.message);
+      getRequestLogger(req).error(
+        buildErrorLogObject(error, { query, upstream: "ThemealDB" }),
+        "ThemealDB request failed"
+      );
       return res.status(502).json({
         message: "Unable to fetch recipes from ThemealDB right now."
       });
     }
 
-    console.error("Search route failed:", error.message);
+    getRequestLogger(req).error(buildErrorLogObject(error, { query }), "Search route failed");
     return res.status(500).json({
       message: "Unable to process search request right now."
     });
@@ -488,7 +556,7 @@ app.get("/api/mealplan/week", verifyToken, async (req, res) => {
       days: buildWeekResponse(weekStart, cachedPlan.plan)
     });
   } catch (error) {
-    console.error("Load meal plan failed:", error.message);
+    getRequestLogger(req).error(buildErrorLogObject(error, { weekStart }), "Load meal plan failed");
     return res.status(500).json({
       message: "Unable to load meal plan right now."
     });
@@ -635,13 +703,19 @@ app.post("/api/mealplan/week", verifyToken, async (req, res) => {
     });
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      console.error("Meal plan week request failed:", error.message);
+      getRequestLogger(req).error(
+        buildErrorLogObject(error, { weekStart, proteins: proteinInput }),
+        "Meal plan week request failed"
+      );
       return res.status(502).json({
         message: "Unable to fetch meal plan recipes right now."
       });
     }
 
-    console.error("Meal plan week route failed:", error.message);
+    getRequestLogger(req).error(
+      buildErrorLogObject(error, { weekStart, proteins: proteinInput }),
+      "Meal plan week route failed"
+    );
     return res.status(500).json({
       message: "Unable to generate a meal plan right now."
     });
@@ -684,7 +758,7 @@ app.delete("/api/mealplan/week", verifyToken, async (req, res) => {
       weekStart
     });
   } catch (error) {
-    console.error("Delete meal plan failed:", error.message);
+    getRequestLogger(req).error(buildErrorLogObject(error, { weekStart }), "Delete meal plan failed");
     return res.status(500).json({
       message: "Unable to delete meal plan right now."
     });
@@ -738,7 +812,7 @@ app.get("/api/mealplan", verifyToken, async (req, res) => {
           });
         });
       } catch (error) {
-        console.error("Meal plan search failed:", protein, axios.isAxiosError(error) ? error.message : error);
+        getRequestLogger(req).warn(buildErrorLogObject(error, { protein }), "Meal plan search failed");
       }
     }
 
@@ -762,13 +836,13 @@ app.get("/api/mealplan", verifyToken, async (req, res) => {
     });
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      console.error("Meal plan route external request failed:", error.message);
+      getRequestLogger(req).error(buildErrorLogObject(error), "Meal plan route external request failed");
       return res.status(502).json({
         message: "Unable to fetch meal plan recipes right now."
       });
     }
 
-    console.error("Meal plan route failed:", error.message);
+    getRequestLogger(req).error(buildErrorLogObject(error), "Meal plan route failed");
     return res.status(500).json({
       message: "Unable to generate a meal plan right now."
     });
@@ -794,7 +868,7 @@ app.get("/api/bookmarks", verifyToken, async (req, res) => {
       bookmarks
     });
   } catch (error) {
-    console.error("Get bookmarks failed:", error.message);
+    getRequestLogger(req).error(buildErrorLogObject(error), "Get bookmarks failed");
     return res.status(500).json({
       message: "Unable to load bookmarks right now."
     });
@@ -852,7 +926,10 @@ app.post("/api/bookmarks", verifyToken, async (req, res) => {
       alreadySaved: false
     });
   } catch (error) {
-    console.error("Save bookmark failed:", error.message);
+    getRequestLogger(req).error(
+      buildErrorLogObject(error, { recipeUrl: bookmark.recipeUrl }),
+      "Save bookmark failed"
+    );
     return res.status(500).json({
       message: "Unable to save bookmark right now."
     });
@@ -903,13 +980,17 @@ app.delete("/api/bookmarks", verifyToken, async (req, res) => {
       count: filteredBookmarks.length
     });
   } catch (error) {
-    console.error("Delete bookmark failed:", error.message);
+    getRequestLogger(req).error(buildErrorLogObject(error, { recipeUrl }), "Delete bookmark failed");
     return res.status(500).json({
       message: "Unable to remove bookmark right now."
     });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend running at http://localhost:${PORT}`);
+const server = app.listen(PORT, () => {
+  logger.info({ port: PORT }, "Backend running");
+});
+
+server.on("error", (error) => {
+  logger.fatal(buildErrorLogObject(error, { port: PORT }), "Backend failed to start");
 });
