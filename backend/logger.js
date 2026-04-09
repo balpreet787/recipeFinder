@@ -1,8 +1,6 @@
 import pino from "pino";
 
-const isProduction = process.env.NODE_ENV === "production";
-const prettyLogsEnabled = process.env.LOG_PRETTY === "true"
-  || (!isProduction && process.env.LOG_PRETTY !== "false");
+const prettyLogsEnabled = process.env.LOG_PRETTY === "true";
 
 const transport = prettyLogsEnabled
   ? {
