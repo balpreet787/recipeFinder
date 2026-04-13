@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL = "http://35.91.131.169";
 
 function getCurrentPageFile() {
   const cleanedPath = window.location.pathname.replace(/\/+$/, "");
