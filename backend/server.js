@@ -14,10 +14,40 @@ const PORT = 3000;
 const region = "us-west-2";
 const userPoolId = "us-west-2_CaC4wWgAg";
 const mealDbBaseUrl = "https://www.themealdb.com/api/json/v1/1";
+const defaultAllowedOrigins = [
+  "http://team5-recipefinder.s3-website-us-west-2.amazonaws.com",
+  "http://localhost:5500",
+  "http://127.0.0.1:5500",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000"
+];
+
+const configuredAllowedOrigins = String(process.env.CORS_ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = configuredAllowedOrigins.length > 0
+  ? configuredAllowedOrigins
+  : defaultAllowedOrigins;
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Origin ${origin} is not allowed by CORS.`));
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Authorization", "Content-Type"],
+  optionsSuccessStatus: 204
+};
 
 let pems = {};
 
-app.use(cors());
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(pinoHttp({
   logger,
   genReqId(req, res) {
@@ -988,7 +1018,7 @@ app.delete("/api/bookmarks", verifyToken, async (req, res) => {
 });
 
 const server = app.listen(PORT, () => {
-  logger.info({ port: PORT }, "Backend running");
+  logger.info({ port: PORT, allowedOrigins }, "Backend running");
 });
 
 server.on("error", (error) => {
